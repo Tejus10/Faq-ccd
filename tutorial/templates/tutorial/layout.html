@@ -27,9 +27,19 @@
   </head>
 
   <body>
+    <!-- <div class="jumbotron" style="background-image: url({% static 'tutorial/iitg.png' %}); background-size:cover; margin-top: -20px; height:auto; ">
+   <div class="container for-about">
+   
+   </div>
+</div> -->
+<div class="container-fluid">
+   
+    <img src="{% static 'tutorial/iitg.png' %}" style="margin-top: -20px;margin-bottom: 10px; background-size:stretch; width: 100%;  height:300px;">
+
+</div>
     <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
       <div class="container">
-        <a href="{% url 'home' %}" class="navbar-brand">FAQs</a>
+        <a href="{% url 'home' %}" class="navbar-brand"><img src="{% static 'tutorial/logo.png' %}" style="height:30px;width:30px;"></a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse"
           aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
@@ -122,6 +132,12 @@
           {% endif %}
       {% block content %}{% endblock %}
     </main>
+
+    <footer>
+      <p class="text-center mb-0">Please contact CCD at ccd@iitg.ac.in for any Queries.</p>
+   <p class="text-center"><a href="https://www.iitg.ac.in/ccd/" target="_blank">© 2020 Centre for Career Development, IIT Guwahati</a> | Designed and Developed by <a href="https://www.facebook.com/tejus.singla.3" target="_blank">Tejus Singla </a>| <a href="https://www.facebook.com/shashank.goyal.790" target="_blank">Shashank Goyal </a>| <a href="https://www.facebook.com/profile.php?id=100003290939541" target="_blank">Kunal Singh</a> </p>
+   
+   </footer>
 
   </body>
 </html>

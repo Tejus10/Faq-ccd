@@ -1,5 +1,5 @@
-from django.shortcuts import render,redirect
-from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import render,redirect, get_object_or_404
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
 from tutorial.auth_helper import get_sign_in_url, get_token_from_code, store_token, store_user, remove_user_and_token, get_token
 from tutorial.graph_helper import get_user
@@ -7,13 +7,18 @@ from .models import ques
 from django.template.context_processors import csrf
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User 
-from django.views.generic import CreateView
+from django.views.generic import CreateView, RedirectView,UpdateView, DeleteView
 from .forms import quesCreateView
 from django.contrib import messages
+from django.db.models import Count
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.template.loader import render_to_string
 
 def home(request):
   context = initialize_context(request)
-
+  if request.user.is_authenticated:
+    user_group_set = set(request.user.likes.values_list('id',flat=True))
+    context['user_group_set'] = user_group_set
   return render(request, 'tutorial/home.html', context)
 
 def initialize_context(request):
@@ -74,9 +79,10 @@ def ask(request):
       return redirect('home')
   form = quesCreateView()
   context['form'] = form
-  return render(request, 'tutorial/ques_form.html', context)
+  return render(request, 'tutorial/ques_ask.html', context)
 
 def search_ques(request):
+  context = {}
   if request.method == 'POST':
     search_text = request.POST['search_text']
     all_ques = ques.objects.filter(question__contains=search_text)
@@ -84,8 +90,11 @@ def search_ques(request):
   else:
     search_text = ''
     all_ques = []  
-  
-  return render(request, 'tutorial/ajax_search.html', { 'all_ques': all_ques } )    
+  if request.user.is_authenticated:  
+    user_group_set = set(request.user.likes.values_list('id',flat=True))
+    context['user_group_set'] = user_group_set
+  context['all_ques'] = all_ques
+  return render(request, 'tutorial/ajax_search.html', context )    
 
 @login_required
 def my_ques(request):
@@ -97,6 +106,9 @@ def my_ques(request):
   # else:
   all_ques = ques.objects.filter(asked_by=request.session['user']['name'])
   context['all_ques'] = all_ques
+  if request.user.is_authenticated:
+    user_group_set = set(request.user.likes.values_list('id',flat=True))
+    context['user_group_set'] = user_group_set
   return render(request, 'tutorial/my_ques.html', context )  
 
 
@@ -108,6 +120,9 @@ def all(request):
   context = initialize_context(request)
   context.update(csrf(request))
   context['questions'] = question
+  if request.user.is_authenticated:
+    user_group_set = set(request.user.likes.values_list('id',flat=True))
+    context['user_group_set'] = user_group_set
   return render(request, 'tutorial/all.html', context)
 
 
@@ -119,12 +134,61 @@ def sort_ques(request):
     elif search_text=='oldest':
       all_ques = ques.objects.all().order_by('date_asked')
     elif search_text=='mlike':
-      all_ques = ques.objects.all().order_by('-likes')
+      all_ques = ques.objects.annotate(q_count=Count('liked_by')) \
+                                 .order_by('-q_count')
     elif search_text=='llike':
-      all_ques = ques.objects.all().order_by('likes')      
+      all_ques = ques.objects.annotate(q_count=Count('liked_by')) \
+                                 .order_by('q_count')      
         
   else:
     search_text = ''
     all_ques = []  
+  context = {}  
   
-  return render(request, 'tutorial/ajax_sort.html', { 'all_ques': all_ques } )  
+  if request.user.is_authenticated:
+    user_group_set = set(request.user.likes.values_list('id',flat=True))
+    context['user_group_set'] = user_group_set
+  context['all_ques'] = all_ques
+  return render(request, 'tutorial/ajax_sort.html', context )  
+
+
+class PostLikeToggle(LoginRequiredMixin, RedirectView):
+  def get_redirect_url(self, *args, **kwargs):
+    slug = self.kwargs.get("slug")
+    obj = get_object_or_404(ques, slug=slug)
+    url_ = obj.get_absolute_url()
+    user = self.request.user
+    if user in obj.liked_by.all():
+      obj.liked_by.remove(user)
+       
+    else:
+      obj.liked_by.add(user) 
+    context = initialize_context(self.request)
+    user_group_set = set(self.request.user.likes.values_list('id',flat=True))
+    context['user_group_set'] = user_group_set      
+    return url_
+
+
+class PostUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = ques
+    fields = ['question', 'answer']
+
+    def form_valid(self, form):
+      return super().form_valid(form)
+
+    def test_func(self):
+      print(self.request.user);
+      post = self.get_object()
+      if str(self.request.user) == "SHASHANK GOYAL":
+          return True
+      return False
+
+class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = ques
+    success_url = '/tutorial/'
+
+    def test_func(self):
+        post = self.get_object()
+        if str(self.request.user) == "SHASHANK GOYAL":
+            return True
+        return False
